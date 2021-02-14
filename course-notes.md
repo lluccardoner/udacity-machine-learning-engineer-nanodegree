@@ -1,5 +1,9 @@
 # Course Notes
 
+This curse notes are taken from the Udacity Machine Learning Engineer curse and they do not represent the totality of the course.
+
+I recomment doing the course to complement this notes.
+
 ## Table of Contents
 1. [AWS Sage Maker](#1)
   1. [Initialization](#1-1)
@@ -380,8 +384,212 @@ The two main issues when using a deployed model are:
 - **Security**: the endpoint is secured, meaning that only entities that are authenticated with AWS can send or receive data from the deployed model. We will solve this with **AWS API Gateway**
 - **Data processing**: the deployed model expects a processed input. To process the input raw data sent to the endpoint we will use **AWS Lambda**
 
+#### Creating a Lambda function
+Inside the Lambda function, we can access a SageMaker session using boto3.
 
+```python
+runtime = boto3.Session().client('sagemaker-runtime')
+```
+
+**Part A: Create an IAM Role for the Lambda function**
+Since we want the Lambda function to call a SageMaker endpoint, we need to make sure that it has permission to do so. To do this, we will construct a role that we can later give the Lambda function.
+
+1. Using the AWS Console, navigate to the IAM page and click on Roles. Then, click on Create role. Make sure that the AWS service is the type of trusted entity selected and choose Lambda as the service that will use this role, then click Next: Permissions.
+2. In the search box type sagemaker and select the check box next to the AmazonSageMakerFullAccess policy. Then, click on Next: Review.
+3. Lastly, give this role a name. Make sure you use a name that you will remember later on, for example LambdaSageMakerRole. Then, click on Create role.
+
+**Part B: Create a Lambda function**
+To start, using the AWS Console, navigate to the AWS Lambda page and click on Create a function. When you get to the next page, make sure that **Author from scratch** is selected. Now, name your Lambda function, using a name that you will remember later on, for example sentiment_analysis_xgboost_func. Make sure that the Python 3.6 runtime is selected and then choose the **role** that you created in the previous part. Then, click on Create Function.
+
+#### Setting up API Gateway
+
+Now that our Lambda function is set up, it is time to create a new API using API Gateway that will trigger the Lambda function we have just created.
+
+Using AWS Console, navigate to Amazon API Gateway and then click on Get started.
+On the next page, make sure that New API is selected and give the new api a name, for example, sentiment_analysis_web_app. Then, click on Create API.
+Now we have created an API, however it doesn't currently do anything. What we want it to do is to trigger the Lambda function that we created earlier.
+Select the Actions dropdown menu and click Create Method. A new blank method will be created, select its dropdown menu and select POST, then click on the check mark beside it.
+
+For the integration point, make sure that Lambda Function is selected and click on the Use Lambda Proxy integration. This option makes sure that the data that is sent to the API is then sent directly to the Lambda function with no processing. It also means that the return value must be a proper response object as it will also not be processed by API Gateway.
+Type the name of the Lambda function you created earlier into the Lambda Function text entry box and then click on Save. Click on OK in the pop-up box that then appears, giving permission to API Gateway to invoke the Lambda function you created.
+
+The last step in creating the API Gateway is to select the Actions dropdown and click on Deploy API. You will need to create a new Deployment stage and name it anything you like, for example prod.
+
+You have now successfully set up a public API to access your SageMaker model. Make sure to copy or write down the URL provided to invoke your newly created public API as this will be needed in the next step. This URL can be found at the top of the page, highlighted in blue next to the text Invoke URL.
 
 ### Hyper parameter tuning<a name="1-7" />
+
+After creating an estimator object and setting the default hyperparameters, we can run a hyper parameter tuning job with the following code.
+
+Note that we can create an Estimator object attaching it to an already finished training job.
+
+#### High level
+
+```python
+from sagemaker.tuner import IntegerParameter, ContinuousParameter, HyperparameterTuner
+
+xgb_hyperparameter_tuner = HyperparameterTuner(
+estimator = xgb, 
+objective_metric_name = 'validation:rmse', 
+objective_type = 'Minimize', 
+max_jobs = 20, 
+max_parallel_jobs = 3, 
+hyperparameter_ranges = { 
+    'max_depth': IntegerParameter(3, 12),
+    'eta'      : ContinuousParameter(0.05, 0.5),
+    'min_child_weight': IntegerParameter(2, 8),
+    'subsample': ContinuousParameter(0.5, 0.9),
+    'gamma': ContinuousParameter(0, 10),
+})
+
+s3_input_train = sagemaker.s3_input(s3_data=train_location, content_type='csv')
+s3_input_validation = sagemaker.s3_input(s3_data=val_location, content_type='csv')
+
+xgb_hyperparameter_tuner.fit({'train': s3_input_train, 'validation': s3_input_validation})
+
+xgb_hyperparameter_tuner.wait()
+
+xgb_hyperparameter_tuner.best_training_job()
+
+xgb_attached = sagemaker.estimator.Estimator.attach(xgb_hyperparameter_tuner.best_training_job())
+```
+
+#### Low level
+On the definition of the training parameters, it’s all similar to the [training low level](https://docs.google.com/document/d/1hxyjz2xntah_xwNJRUIAxOJUthv-T1ZU7lVVLszj7ro/edit#heading=h.vf5vprgt7u5h), except we specify only the **static** hyper parameters.
+
+```python
+training_params['StaticHyperParameters'] = {
+    "gamma": "4",
+    "subsample": "0.8",
+    "objective": "reg:linear",
+    "early_stopping_rounds": "10",
+    "num_round": "200"
+}
+```
+
+Then, to set up the training job we specify the configuration we want.
+
+```python
+tuning_job_config = {
+    # First we specify which hyperparameters we want SageMaker to be able to vary,
+    # and we specify the type and range of the hyperparameters.
+    "ParameterRanges": {
+    "CategoricalParameterRanges": [],
+    "ContinuousParameterRanges": [
+        {
+            "MaxValue": "0.5",
+            "MinValue": "0.05",
+            "Name": "eta"
+        },
+    ],
+    "IntegerParameterRanges": [
+        {
+            "MaxValue": "12",
+            "MinValue": "3",
+            "Name": "max_depth"
+        },
+        {
+            "MaxValue": "8",
+            "MinValue": "2",
+            "Name": "min_child_weight"
+        }
+    ]},
+    # We also need to specify how many models should be fit and how many can be fit in parallel
+    "ResourceLimits": {
+        "MaxNumberOfTrainingJobs": 20,
+        "MaxParallelTrainingJobs": 3
+    },
+    # Here we specify how SageMaker should update the hyperparameters as new models are fit
+    "Strategy": "Bayesian",
+    # And lastly we need to specify how we'd like to determine which models are better or worse
+    "HyperParameterTuningJobObjective": {
+        "MetricName": "validation:rmse",
+        "Type": "Minimize"
+    }
+  }
+```
+
+After this we create and execute the **tuning job**. Note that the naming should be **32 characters long** (and 62 characters for the training jobs).
+
+```python
+tuning_job_name = "tuning-job" + strftime("%Y-%m-%d-%H-%M-%S", gmtime())
+
+session.sagemaker_client.create_hyper_parameter_tuning_job(
+                            HyperParameterTuningJobName = tuning_job_name,
+                            HyperParameterTuningJobConfig = tuning_job_config,
+                            TrainingJobDefinition = training_params)
+
+session.wait_for_tuning_job(tuning_job_name)
+```
+
+Now, the best training job is chosen.
+
+```python
+tuning_job_info = session.sagemaker_client.describe_hyper_parameter_tuning_job(HyperParameterTuningJobName=tuning_job_name)
+
+best_training_job_name = tuning_job_info['BestTrainingJob']['TrainingJobName']
+training_job_info = session.sagemaker_client.describe_training_job(TrainingJobName=best_training_job_name)
+
+model_artifacts = training_job_info['ModelArtifacts']['S3ModelArtifacts']
+
+model_name = best_training_job_name + "-model"
+
+# We also need to tell SageMaker which container should be used for inference and where it should retrieve the model artifacts from. In our case, the xgboost container that we used for training can also be used for inference.
+primary_container = {
+    "Image": container,
+    "ModelDataUrl": model_artifacts
+}
+
+# And lastly we construct the SageMaker model
+model_info = session.sagemaker_client.create_model(
+                                ModelName = model_name,
+                                ExecutionRoleArn = role,
+                                PrimaryContainer = primary_container)
+
+```
 ### Model A/B testing<a name="1-8" />
+
+We can do so by configuring an endpoint with multiple models.
+
+```python
+combined_endpoint_config_name = "boston-combined-endpoint-config-" + strftime("%Y-%m-%d-%H-%M-%S", gmtime())
+
+# And then we ask SageMaker to construct the endpoint configuration
+combined_endpoint_config_info = session.sagemaker_client.create_endpoint_config(
+                            EndpointConfigName = combined_endpoint_config_name,
+                            ProductionVariants = [
+                                { # First we include the linear model
+                                    "InstanceType": "ml.m4.xlarge",
+                                    "InitialVariantWeight": 1,
+                                    "InitialInstanceCount": 1,
+                                    "ModelName": linear_model_name,
+                                    "VariantName": "Linear-Model"
+                                }, { # And next we include the xgb model
+                                    "InstanceType": "ml.m4.xlarge",
+                                    "InitialVariantWeight": 1,
+                                    "InitialInstanceCount": 1,
+                                    "ModelName": xgb_model_name,
+                                    "VariantName": "XGB-Model"
+                                }])
+
+endpoint_name = "boston-update-endpoint-" + strftime("%Y-%m-%d-%H-%M-%S", gmtime())
+
+# And then we can deploy our endpoint
+endpoint_info = session.sagemaker_client.create_endpoint(
+                    EndpointName = endpoint_name,
+                    EndpointConfigName = combined_endpoint_config_name)
+
+endpoint_dec = session.wait_for_endpoint(endpoint_name)
+```
+
 ### Updating an endpoint<a name="1-9" />
+
+We can update an endpoint with a new configuration. This can be useful for updating the production model with a newly trained one or to set a test A/B.
+
+```python
+session.sagemaker_client.update_endpoint(EndpointName=endpoint_name, EndpointConfigName=linear_endpoint_config_name)
+
+endpoint_dec = session.wait_for_endpoint(endpoint_name)
+
+pprint(session.sagemaker_client.describe_endpoint(EndpointName=endpoint_name))
+```
