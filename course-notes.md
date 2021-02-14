@@ -290,6 +290,89 @@ transform_desc = session.wait_for_transform_job(transform_job_name)
 ```
 
 ### Deploying a model<a name="1-5" />
+
+**NOTE**: When deploying a model you are asking SageMaker to launch a compute instance that will wait for data to be sent to it. As a result, this compute instance will continue to run until you shut it down. This is important to know since **the cost of a deployed endpoint depends on how long it has been running for**.
+
+#### High level
+
+Create an enpoint to make inference with the deployed model.
+
+```python
+# This creates the enpoint
+xgb_predictor = xgb.deploy(initial_instance_count=1, instance_type='ml.m4.xlarge')
+
+# We need to tell the endpoint what format the data we are sending is in
+xgb_predictor.content_type = 'text/csv'
+xgb_predictor.serializer = csv_serializer
+
+Y_pred = xgb_predictor.predict(X_test.values).decode('utf-8')
+# predictions is currently a comma delimited string and so we would like to break it up
+# as a numpy array. This may change depending on the type of model used.
+Y_pred = np.fromstring(Y_pred, sep=',')
+
+xgb_predictor.delete_endpoint()
+```
+
+#### Low level
+
+Endpoint configuration
+
+```python
+# As before, we need to give our endpoint configuration a name which should be unique
+endpoint_config_name = "boston-xgboost-endpoint-config-" + strftime("%Y-%m-%d-%H-%M-%S", gmtime())
+
+# And then we ask SageMaker to construct the endpoint configuration
+endpoint_config_info = session.sagemaker_client.create_endpoint_config(
+                            EndpointConfigName = endpoint_config_name,
+                            ProductionVariants = [{
+                                "InstanceType": "ml.m4.xlarge",
+                                "InitialVariantWeight": 1,
+                                "InitialInstanceCount": 1,
+                                "ModelName": model_name,
+                                "VariantName": "AllTraffic"
+                            }])
+
+```
+
+Create endpoint
+
+```python
+# Again, we need a unique name for our endpoint
+endpoint_name = "boston-xgboost-endpoint-" + strftime("%Y-%m-%d-%H-%M-%S", gmtime())
+
+# And then we can deploy our endpoint
+endpoint_info = session.sagemaker_client.create_endpoint(
+                    EndpointName = endpoint_name,
+                    EndpointConfigName = endpoint_config_name)
+
+endpoint_dec = session.wait_for_endpoint(endpoint_name)
+```
+
+Use the deployed model through the endpoint
+
+```python
+# First we need to serialize the input data. In this case we want to send the test data as a csv and so we manually do this. 
+# Of course, there are many other ways to do this.
+payload = [[str(entry) for entry in row] for row in X_test.values]
+payload = '\n'.join([','.join(row) for row in payload])
+
+# This time we use the sagemaker runtime client rather than the sagemaker client so that we can invoke the endpoint that we created.
+response = session.sagemaker_runtime_client.invoke_endpoint(
+                                                EndpointName = endpoint_name,
+                                                ContentType = 'text/csv',
+                                                Body = payload)
+
+# We need to make sure that we deserialize the result of our endpoint call.
+result = response['Body'].read().decode("utf-8")
+Y_pred = np.fromstring(result, sep=',')
+```
+
+To delete the endpoint
+
+```python
+session.sagemaker_client.delete_endpoint(EndpointName = endpoint_name)
+``
+
 ### How to use a deployed model<a name="1-6" />
 ### Hyper parameter tuning<a name="1-7" />
 ### Model A/B testing<a name="1-8" />
