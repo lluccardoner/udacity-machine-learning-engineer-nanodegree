@@ -99,7 +99,196 @@ xgb.fit({'train': s3_input_train, 'validation': s3_input_val})
 
 **Note**: the fit method does not create the Model per se. It creates the **model artifacts**. With the high level API, the model is created when needed. For exsmple with a transformer is created or the model is deployed.
 
+#### Low level API
+
+Create training job ([API](https://docs.aws.amazon.com/sagemaker/latest/APIReference/API_CreateTrainingJob.html))
+```python
+container = get_image_uri(session.boto_region_name, 'xgboost')
+
+training_params = {}
+
+# We need to specify the permissions that this training job will have. For our purposes we can use the same permissions that our current SageMaker session has.
+training_params['RoleArn'] = role
+
+# Here we describe the algorithm we wish to use. The most important part is the container which contains the training code.
+training_params['AlgorithmSpecification'] = {
+    "TrainingImage": container,
+    "TrainingInputMode": "File"
+}
+
+# We also need to say where we would like the resulting model artifacts stored.
+training_params['OutputDataConfig'] = {
+    "S3OutputPath": "s3://" + session.default_bucket() + "/" + prefix + "/output"
+}
+
+# We also need to set some parameters for the training job itself. Namely we need to describe what sort of
+# compute instance we wish to use along with a stopping condition to handle the case that there is
+# some sort of error and the training script doesn't terminate.
+training_params['ResourceConfig'] = {
+    "InstanceCount": 1,
+    "InstanceType": "ml.m4.xlarge",
+    "VolumeSizeInGB": 5
+}
+    
+training_params['StoppingCondition'] = {
+    "MaxRuntimeInSeconds": 86400
+}
+
+# Next we set the algorithm specific hyperparameters. You may wish to change these to see what effect
+# there is on the resulting model.
+training_params['HyperParameters'] = {
+    "max_depth": "5",
+    "eta": "0.2",
+    "gamma": "4",
+    "min_child_weight": "6",
+    "subsample": "0.8",
+    "objective": "reg:linear",
+    "early_stopping_rounds": "10",
+    "num_round": "200"
+}
+
+# Now we need to tell SageMaker where the data should be retrieved from.
+training_params['InputDataConfig'] = [
+    {
+        "ChannelName": "train",
+        "DataSource": {
+            "S3DataSource": {
+                "S3DataType": "S3Prefix",
+                "S3Uri": train_location,
+                "S3DataDistributionType": "FullyReplicated"
+            }
+        },
+        "ContentType": "csv",
+        "CompressionType": "None"
+    },
+    {
+        "ChannelName": "validation",
+        "DataSource": {
+            "S3DataSource": {
+                "S3DataType": "S3Prefix",
+                "S3Uri": val_location,
+                "S3DataDistributionType": "FullyReplicated"
+            }
+        },
+        "ContentType": "csv",
+        "CompressionType": "None"
+    }
+]
+
+training_job = session.sagemaker_client.create_training_job(**training_params)
+
+session.logs_for_job(training_job_name, wait=True)
+```
+
+Creating a model with the model artifacts
+
+```python
+# We begin by asking SageMaker to describe for us the results of the training job. The data structure returned contains a lot more information than we currently need, try checking it out yourself in more detail.
+
+training_job_info = session.sagemaker_client.describe_training_job(TrainingJobName=training_job_name)
+
+model_artifacts = training_job_info['ModelArtifacts']['S3ModelArtifacts']
+
+# Just like when we created a training job, the model name must be unique
+model_name = training_job_name + "-model"
+
+# We also need to tell SageMaker which container should be used for inference and where it should retrieve the model artifacts from. In our case, the xgboost container that we used for training can also be used for inference.
+primary_container = {
+    "Image": container,
+    "ModelDataUrl": model_artifacts
+}
+
+# And lastly we construct the SageMaker model
+model_info = session.sagemaker_client.create_model(
+                                ModelName = model_name,
+                                ExecutionRoleArn = role,
+                                PrimaryContainer = primary_container)
+```
+
 ### Testing the model<a name="1-4" />
+
+Testing the model can be done making predictions on the test dataset with a batch transform job. It can also be done by deploying the model, but the deployed enpoint has a cost while it is running.
+
+#### High level
+
+Now that we have fit our model to the training data, using the validation data to avoid overfitting, we can test our model. To do this we will make use of **SageMaker's Batch Transform** functionality. To start with, we need to build a **transformer object** from our fit model.
+
+```python
+xgb_transformer = xgb.transformer(instance_count = 1, instance_type = 'ml.m4.xlarge')
+```
+
+Next we ask SageMaker to begin a batch **transform job** using our trained model and applying it to the test data we previously stored in S3. We need to make sure to provide SageMaker with the type of data that we are providing to our model, in our case text/csv, so that it knows how to serialize our data. In addition, we need to make sure to let SageMaker know how to split our data up into chunks if the entire data set happens to be too large to send to our model all at once.
+
+Note that when we ask SageMaker to do this it will execute the batch transform job in the **background**. Since we need to wait for the results of this job before we can continue, we use the `wait() method. An added benefit of this is that we get some output from our batch transform job which lets us know if anything went wrong.
+
+```python
+xgb_transformer.transform(test_location, content_type='text/csv', split_type='Line')
+
+xgb_transformer.wait()
+```
+#### Low level
+
+Create batch transform ([API](https://docs.aws.amazon.com/sagemaker/latest/APIReference/API_CreateTransformJob.html))
+
+```python
+# Just like in each of the previous steps, we need to make sure to name our job and the name should be unique.
+transform_job_name = 'boston-xgboost-batch-transform-' + strftime("%Y-%m-%d-%H-%M-%S", gmtime())
+
+# Now we construct the data structure which will describe the batch transform job.
+transform_request = \
+{
+    "TransformJobName": transform_job_name,
+    
+    # This is the name of the model that we created earlier.
+    "ModelName": model_name,
+    
+    # This describes how many compute instances should be used at once. If you happen to be doing a very large
+    # batch transform job it may be worth running multiple compute instances at once.
+    "MaxConcurrentTransforms": 1,
+    
+    # This says how big each individual request sent to the model should be, at most. One of the things that
+    # SageMaker does in the background is to split our data up into chunks so that each chunks stays under
+    # this size limit.
+    "MaxPayloadInMB": 6,
+    
+    # Sometimes we may want to send only a single sample to our endpoint at a time, however in this case each of
+    # the chunks that we send should contain multiple samples of our input data.
+    "BatchStrategy": "MultiRecord",
+    
+    # This next object describes where the output data should be stored. Some of the more advanced options which
+    # we don't cover here also describe how SageMaker should collect output from various batches.
+    "TransformOutput": {
+        "S3OutputPath": "s3://{}/{}/batch-bransform/".format(session.default_bucket(),prefix)
+    },
+    
+    # Here we describe our input data. Of course, we need to tell SageMaker where on S3 our input data is stored, in
+    # addition we need to detail the characteristics of our input data. In particular, since SageMaker may need to
+    # split our data up into chunks, it needs to know how the individual samples in our data file appear. In our
+    # case each line is its own sample and so we set the split type to 'line'. We also need to tell SageMaker what
+    # type of data is being sent, in this case csv, so that it can properly serialize the data.
+    "TransformInput": {
+        "ContentType": "text/csv",
+        "SplitType": "Line",
+        "DataSource": {
+            "S3DataSource": {
+                "S3DataType": "S3Prefix",
+                "S3Uri": test_location,
+            }
+        }
+    },
+    
+    # And lastly we tell SageMaker what sort of compute instance we would like it to use.
+    "TransformResources": {
+            "InstanceType": "ml.m4.xlarge",
+            "InstanceCount": 1
+    }
+}
+
+transform_response = session.sagemaker_client.create_transform_job(**transform_request)
+
+transform_desc = session.wait_for_transform_job(transform_job_name)
+```
+
 ### Deploying a model<a name="1-5" />
 ### How to use a deployed model<a name="1-6" />
 ### Hyper parameter tuning<a name="1-7" />
