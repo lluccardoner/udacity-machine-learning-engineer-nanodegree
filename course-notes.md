@@ -371,9 +371,17 @@ To delete the endpoint
 
 ```python
 session.sagemaker_client.delete_endpoint(EndpointName = endpoint_name)
-``
+```
 
 ### How to use a deployed model<a name="1-6" />
+
+The two main issues when using a deployed model are:
+
+- **Security**: the endpoint is secured, meaning that only entities that are authenticated with AWS can send or receive data from the deployed model. We will solve this with **AWS API Gateway**
+- **Data processing**: the deployed model expects a processed input. To process the input raw data sent to the endpoint we will use **AWS Lambda**
+
+
+
 ### Hyper parameter tuning<a name="1-7" />
 ### Model A/B testing<a name="1-8" />
 ### Updating an endpoint<a name="1-9" />
