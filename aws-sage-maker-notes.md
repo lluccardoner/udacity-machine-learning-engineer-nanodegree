@@ -1,4 +1,4 @@
-# Course Notes
+# AWS Sage Maker Notes
 
 This curse notes are taken from the Udacity Machine Learning Engineer curse and they do not represent the totality of the course.
 
@@ -6,15 +6,15 @@ I recomment doing the course to complement this notes.
 
 ## Table of Contents
 1. [AWS Sage Maker](#1)
-  1. [Initialization](#1-1)
-  2. [Storing data to S3](#1-2)
-  3. [Training and building a model](#1-3)
-  4. [Testing the model](#1-4)
-  5. [Deploying a model](#1-5)
-  6. [How to use a deployed model](#1-6)
-  7. [Hyper parameter tuning](#1-7)
-  8. [Model A/B testing](#1-8)
-  9. [Updating an endpoint](#1-9)
+2. [Initialization](#1-1)
+3. [Storing data to S3](#1-2)
+4. [Training and building a model](#1-3)
+5. [Testing the model](#1-4)
+6. [Deploying a model](#1-5)
+7. [How to use a deployed model](#1-6)
+8. [Hyper parameter tuning](#1-7)
+9. [Model A/B testing](#1-8)
+10. [Updating an endpoint](#1-9)
 
 ## AWS Sage Maker<a name="1" />
 
