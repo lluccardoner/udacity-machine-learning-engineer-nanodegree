@@ -105,4 +105,4 @@ def explained_variance(s, n_top_components):
 
     exp_variance = np.square(s.iloc[start_idx:, :]).sum() / np.square(s).sum()
     return exp_variance[0]
-``
+```
