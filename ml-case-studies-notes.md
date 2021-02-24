@@ -90,3 +90,17 @@ start_idx = N_COMPONENTS - n_principal_components  # 33-n
 # print a selection of s
 print(s.iloc[start_idx:, :])
 ```
+To find the explained variance of the top N components we can use the following method:
+```python
+def explained_variance(s, n_top_components):
+    '''Calculates the approx. data variance that n_top_components captures.
+       :param s: A dataframe of singular values for top components; 
+           the top value is in the last row.
+       :param n_top_components: An integer, the number of top components to use.
+       :return: The expected data variance covered by the n_top_components.'''
+    
+    start_idx = N_COMPONENTS - n_top_components
+
+    exp_variance = np.square(s.iloc[start_idx:, :]).sum() / np.square(s).sum()
+    return exp_variance[0]
+``
