@@ -137,4 +137,6 @@ def display_component(v, features_list, component_num, n_weights=10):
                    palette="Blues_d")
     ax.set_title("PCA Component Makeup, Component #" + str(component_num))
     plt.show()
+    
+display_component(v, train_df.columns.values, component_num=1, n_weights=10)
 ```
