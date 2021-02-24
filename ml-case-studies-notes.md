@@ -2,12 +2,13 @@
 
 ## Table of contents
 1. [Population Segmentation](#1)
+2. [PCA](#1.1)
 
 Udacity [repository](https://github.com/udacity/ML_SageMaker_Studies)
 
 ## Population Segmentation<a name="1" />
 
-### PCA
+### PCA<a name="1.1" />
 
 Creating the PCA model
 ```python
@@ -90,6 +91,7 @@ start_idx = N_COMPONENTS - n_principal_components  # 33-n
 # print a selection of s
 print(s.iloc[start_idx:, :])
 ```
+
 To find the explained variance of the top N components we can use the following method:
 ```python
 def explained_variance(s, n_top_components):
