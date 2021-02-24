@@ -106,3 +106,35 @@ def explained_variance(s, n_top_components):
     exp_variance = np.square(s.iloc[start_idx:, :]).sum() / np.square(s).sum()
     return exp_variance[0]
 ```
+
+We can now examine the makeup of each PCA component based on the weightings of the original features that are included in the component. The following code shows the feature-level makeup of the first component.
+```python
+import seaborn as sns
+
+def display_component(v, features_list, component_num, n_weights=10):
+    
+    # get index of component (last row - component_num)
+    row_idx = N_COMPONENTS-component_num
+
+    # get the list of weights from a row in v, dataframe
+    v_1_row = v.iloc[:, row_idx]
+    v_1 = np.squeeze(v_1_row.values)
+
+    # match weights to features in counties_scaled dataframe, using list comporehension
+    comps = pd.DataFrame(list(zip(v_1, features_list)), 
+                         columns=['weights', 'features'])
+
+    # we'll want to sort by the largest n_weights
+    # weights can be neg/pos and we'll sort by magnitude
+    comps['abs_weights']=comps['weights'].apply(lambda x: np.abs(x))
+    sorted_weight_data = comps.sort_values('abs_weights', ascending=False).head(n_weights)
+
+    # display using seaborn
+    ax=plt.subplots(figsize=(10,6))
+    ax=sns.barplot(data=sorted_weight_data, 
+                   x="weights", 
+                   y="features", 
+                   palette="Blues_d")
+    ax.set_title("PCA Component Makeup, Component #" + str(component_num))
+    plt.show()
+```
