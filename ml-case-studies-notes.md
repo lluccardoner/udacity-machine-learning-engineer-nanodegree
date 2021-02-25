@@ -3,6 +3,7 @@
 ## Table of contents
 1. [Population Segmentation](#1)
 2. [PCA](#1.1)
+3. [K-Means](#1.2)
 
 Udacity [repository](https://github.com/udacity/ML_SageMaker_Studies)
 
@@ -177,3 +178,106 @@ def create_transformed_df(train_pca, counties_scaled, n_top_components):
     
     return counties_transformed
 ```
+
+### K-Means<a name="1.2" />
+
+Define the estimator
+```python
+kmeans = sagemaker.KMeans(role, 
+                          instance_count=1, 
+                          instance_type='ml.c4.xlarge', 
+                          k=8, 
+                          output_path=output_path,
+                          sagemaker_session=session
+                         )
+```
+
+Fit the estimator
+```python
+# Convert tu numpy array
+counties_transformed_np = counties_transformed.values.astype('float32')
+
+# convert to RecordSet format
+counties_transformed_formatted = kmeans.record_set(counties_transformed_np)
+
+kmeans.fit(counties_transformed_formatted)
+```
+
+Deploy the model
+```python
+kmeans_predictor = kmeans.deploy(
+    initial_instance_count=1, 
+    instance_type='ml.t2.medium'
+)
+```
+
+After deploying the model, you can pass in the k-means training data, as a numpy array, and get resultant, predicted cluster labels for each data point.
+```python
+cluster_info=kmeans_predictor.predict(counties_transformed_np)
+
+# print cluster info for first data point
+data_idx = 0
+
+print('County is: ', counties_transformed.index[data_idx])
+print()
+print(cluster_info[data_idx])
+```
+
+Visualize the distribution of data over clusters
+```python
+cluster_labels = [c.label['closest_cluster'].float32_tensor.values[0] for c in cluster_info]
+
+cluster_df = pd.DataFrame(cluster_labels)[0].value_counts()
+
+print(cluster_df)
+```
+
+To access the models attributes (centroids) we have to download the model artifacts.
+```python
+# download and unzip the kmeans model file
+# use the name model_algo-1
+training_job_name=kmeans.latest_training_job.job_name
+
+# where the model is saved, by default
+model_key = os.path.join(prefix, training_job_name, 'output/model.tar.gz')
+
+# download and unzip model
+boto3.resource('s3').Bucket(bucket_name).download_file(model_key, 'model.tar.gz')
+
+# unzipping as model_algo-1
+os.system('tar -zxvf model.tar.gz')
+os.system('unzip model_algo-1')
+
+# print the parameters
+import mxnet as mx
+
+kmeans_model_params = mx.ndarray.load('model_algo-1')
+
+print(kmeans_model_params)
+
+# get all the centroids
+cluster_centroids=pd.DataFrame(kmeans_model_params[0].asnumpy())
+cluster_centroids.columns=counties_transformed.columns
+
+display(cluster_centroids)
+
+# generate a heatmap in component space, using the seaborn library
+plt.figure(figsize = (12,9))
+ax = sns.heatmap(cluster_centroids.T, cmap = 'YlGnBu')
+ax.set_xlabel("Cluster")
+plt.yticks(fontsize = 16)
+plt.xticks(fontsize = 16)
+ax.set_title("Attribute Value by Centroid")
+plt.show()
+```
+
+Add the cluster label to the original training dataframe.
+```python
+# add a 'labels' column to the dataframe
+counties_transformed['labels']=list(map(int, cluster_labels))
+
+# sort by cluster label 0-6
+sorted_counties = counties_transformed.sort_values('labels', ascending=False)
+# view some pts in cluster 0
+sorted_counties.head(20)
+
