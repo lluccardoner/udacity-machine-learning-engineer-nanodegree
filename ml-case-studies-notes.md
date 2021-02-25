@@ -140,3 +140,40 @@ def display_component(v, features_list, component_num, n_weights=10):
     
 display_component(v, train_df.columns.values, component_num=1, n_weights=10)
 ```
+Deploying the PCA model. This creates an endpoint for making inferences. The endpoint has a cost as long as it is running.
+```python
+pca_predictor = pca_SM.deploy(initial_instance_count=1, 
+                              instance_type='ml.t2.medium')
+```
+We can pass the original, numpy dataset to the model and transform the data using the model we created. Then we can take the largest n components to reduce the dimensionality of our data.
+```python
+train_pca = pca_predictor.predict(train_data_np)
+```
+
+Now we can create a data frame with the top N components values for each data point.
+```python
+# create dimensionality-reduced data
+def create_transformed_df(train_pca, counties_scaled, n_top_components):
+    ''' Return a dataframe of data points with component features. 
+        The dataframe should be indexed by State-County and contain component values.
+        :param train_pca: A list of pca training data, returned by a PCA model.
+        :param counties_scaled: A dataframe of normalized, original features.
+        :param n_top_components: An integer, the number of top components to use.
+        :return: A dataframe, indexed by State-County, with n_top_component values as columns.        
+     '''
+    counties_transformed = pd.DataFrame()
+    
+    for data in train_pca:
+        components = data.label["projection"].float32_tensor.values
+        counties_transformed = counties_transformed.append([list(components)])
+        
+    counties_transformed.index = counties_scaled.index
+    
+    start_idx = N_COMPONENTS - n_top_components
+    counties_transformed = counties_transformed.iloc[:,start_idx:]
+    counties_transformed = counties_transformed.iloc[:, ::-1]
+    
+    counties_transformed.columns = ["c_" + str(i) for i in range(1,n_top_components+1)]
+    
+    return counties_transformed
+```
