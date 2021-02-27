@@ -3,12 +3,11 @@
 ## Table of contents
 1. [PCA](#1)
 2. [K-Means](#2)
+3. [Linear Model](#3)
 
 Udacity [repository](https://github.com/udacity/ML_SageMaker_Studies)
 
-## Population Segmentation<a name="1" />
-
-### PCA<a name="1" />
+## PCA<a name="1" />
 
 Creating the PCA model
 ```python
@@ -178,7 +177,7 @@ def create_transformed_df(train_pca, counties_scaled, n_top_components):
     return counties_transformed
 ```
 
-### K-Means<a name="2" />
+## K-Means<a name="2" />
 
 Define the estimator
 ```python
@@ -279,4 +278,67 @@ counties_transformed['labels']=list(map(int, cluster_labels))
 sorted_counties = counties_transformed.sort_values('labels', ascending=False)
 # view some pts in cluster 0
 sorted_counties.head(20)
+```
+
+## Linear Model
+
+SageMaker Linear Model has a way to set for a specific target: accuracy, precision or recall. Also it automatically handles inbalanced data.
+```python
+linear_balanced = LinearLearner(role=role,
+                              train_instance_count=1, 
+                              train_instance_type='ml.c4.xlarge',
+                              predictor_type='binary_classifier',
+                              output_path=output_path,
+                              sagemaker_session=sagemaker_session,
+                              epochs=15,
+                              binary_classifier_model_selection_criteria='precision_at_target_recall', # target recall
+                              target_recall=0.9, # 90% recall
+                              positive_example_weight_mult='balanced' ) 
+```
+
+A way to evaluate the model and see the confusion matrix:
+```python
+# code to evaluate the endpoint on test data
+# returns a variety of model metrics
+def evaluate(predictor, test_features, test_labels, verbose=True):
+    """
+    Evaluate a model on a test set given the prediction endpoint.  
+    Return binary classification metrics.
+    :param predictor: A prediction endpoint
+    :param test_features: Test features
+    :param test_labels: Class labels for test data
+    :param verbose: If True, prints a table of all performance metrics
+    :return: A dictionary of performance metrics.
+    """
+    
+    # We have a lot of test data, so we'll split it into batches of 100
+    # split the test data set into batches and evaluate using prediction endpoint    
+    prediction_batches = [predictor.predict(batch) for batch in np.array_split(test_features, 100)]
+    
+    # LinearLearner produces a `predicted_label` for each data point in a batch
+    # get the 'predicted_label' for every point in a batch
+    test_preds = np.concatenate([np.array([x.label['predicted_label'].float32_tensor.values[0] for x in batch]) 
+                                 for batch in prediction_batches])
+    
+    # calculate true positives, false positives, true negatives, false negatives
+    tp = np.logical_and(test_labels, test_preds).sum()
+    fp = np.logical_and(1-test_labels, test_preds).sum()
+    tn = np.logical_and(1-test_labels, 1-test_preds).sum()
+    fn = np.logical_and(test_labels, 1-test_preds).sum()
+    
+    # calculate binary classification metrics
+    recall = tp / (tp + fn)
+    precision = tp / (tp + fp)
+    accuracy = (tp + tn) / (tp + fp + tn + fn)
+    
+    # printing a table of metrics
+    if verbose:
+        print(pd.crosstab(test_labels, test_preds, rownames=['actual (row)'], colnames=['prediction (col)']))
+        print("\n{:<11} {:.3f}".format('Recall:', recall))
+        print("{:<11} {:.3f}".format('Precision:', precision))
+        print("{:<11} {:.3f}".format('Accuracy:', accuracy))
+        print()
+        
+    return {'TP': tp, 'FP': fp, 'FN': fn, 'TN': tn, 
+            'Precision': precision, 'Recall': recall, 'Accuracy': accuracy}
 
