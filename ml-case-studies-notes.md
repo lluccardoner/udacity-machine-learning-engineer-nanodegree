@@ -280,7 +280,7 @@ sorted_counties = counties_transformed.sort_values('labels', ascending=False)
 sorted_counties.head(20)
 ```
 
-## Linear Model<a name="1" />
+## Linear Model<a name="3" />
 
 SageMaker Linear Model has a way to set for a specific target: accuracy, precision or recall. Also it automatically handles inbalanced data.
 ```python
