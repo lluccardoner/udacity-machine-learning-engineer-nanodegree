@@ -4,6 +4,7 @@
 1. [PCA](#1)
 2. [K-Means](#2)
 3. [Linear Model](#3)
+4. [Custom PyTorch model](#4)
 
 Udacity [repository](https://github.com/udacity/ML_SageMaker_Studies)
 
@@ -342,3 +343,7 @@ def evaluate(predictor, test_features, test_labels, verbose=True):
     return {'TP': tp, 'FP': fp, 'FN': fn, 'TN': tn, 
             'Precision': precision, 'Recall': recall, 'Accuracy': accuracy}
 ```
+## Custom PyTorch model<a name="4" />
+
+* [code for a 3-layer MLP](https://github.com/udacity/deep-learning-v2-pytorch/blob/master/convolutional-neural-networks/mnist-mlp/mnist_mlp_solution.ipynb)
+* [torch.nn](https://pytorch.org/docs/stable/nn.html#torch-nn)
