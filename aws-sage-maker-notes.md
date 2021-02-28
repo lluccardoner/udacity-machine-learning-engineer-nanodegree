@@ -20,6 +20,7 @@ I recomment doing the course to complement this notes.
 
 - [Amazon SageMaker Python SDK](https://sagemaker.readthedocs.io/en/latest/index.html#)
 - [Udacity notebooks repository](https://github.com/udacity/sagemaker-deployment)
+- [AWS SageMaker examples](https://github.com/aws/amazon-sagemaker-examples)
 
 ### Initialization<a name="1-1" />
 
