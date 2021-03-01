@@ -347,3 +347,30 @@ def evaluate(predictor, test_features, test_labels, verbose=True):
 
 * [code for a 3-layer MLP](https://github.com/udacity/deep-learning-v2-pytorch/blob/master/convolutional-neural-networks/mnist-mlp/mnist_mlp_solution.ipynb)
 * [torch.nn](https://pytorch.org/docs/stable/nn.html#torch-nn)
+
+Training
+We instantiate a PyTorch estimator giving the train.py script as entry point and the hyperparameters that this script accepts.
+```python
+from sagemaker.pytorch import PyTorch
+output_path = f"s3://{bucket}/{prefix}"
+
+# instantiate a pytorch estimator
+estimator = PyTorch(
+    role=role,
+    sagemaker_session=sagemaker_session,
+    instance_count=1,
+    instance_type='ml.c4.xlarge',
+    output_path=output_path,
+    entry_point='train.py',
+    source_dir='source',
+    framework_version='1.6',
+    py_version='py36',
+    hyperparameters={
+        'input_dim': 2,
+        'hidden_dim': 20,
+        'output_dim': 1,
+        'epochs': 100
+    }
+)
+
+```
