@@ -420,4 +420,22 @@ estimator = Estimator(
     output_path=s3_output_path
 )
 ```
+To set the [hyperparameter documentation](https://docs.aws.amazon.com/sagemaker/latest/dg/deepar_hyperparameters.html) of the estimator:
+```python
+freq='D'
+context_length=30 # same as prediction_length
 
+hyperparameters = {
+    "epochs": "50",
+    "time_freq": freq,
+    "prediction_length": str(prediction_length),
+    "context_length": str(context_length),
+    "num_cells": "50",
+    "num_layers": "2",
+    "mini_batch_size": "128",
+    "learning_rate": "0.001",
+    "early_stopping_patience": "10"
+}
+
+estimator.set_hyperparameters(**hyperparameters)
+``
