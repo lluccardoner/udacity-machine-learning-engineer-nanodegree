@@ -403,6 +403,21 @@ predictor = model.deploy(initial_instance_count=1, instance_type='ml.t2.medium')
 
 
 * [pandas time series functionality](https://pandas.pydata.org/pandas-docs/stable/user_guide/timeseries.html#time-series-date-functionality)
-* [DeepAR](https://docs.aws.amazon.com/sagemaker/latest/dg/deepar.html)
 
+[DeepAR](https://docs.aws.amazon.com/sagemaker/latest/dg/deepar.html) is a built in algorithm of SageMaker.
+```python
+from sagemaker.amazon.amazon_estimator import get_image_uri
+
+image_name = get_image_uri(boto3.Session().region_name, # get the region
+                           'forecasting-deepar') # specify image
+                           
+estimator = Estimator(
+    role=role,
+    sagemaker_session=sagemaker_session,
+    image_uri=image_name,
+    train_instance_count=1,
+    train_instance_type='ml.c4.xlarge',
+    output_path=s3_output_path
+)
+```
 
