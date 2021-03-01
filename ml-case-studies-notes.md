@@ -349,7 +349,7 @@ def evaluate(predictor, test_features, test_labels, verbose=True):
 * [torch.nn](https://pytorch.org/docs/stable/nn.html#torch-nn)
 
 Training
-We instantiate a PyTorch estimator giving the train.py script as entry point and the hyperparameters that this script accepts.
+We instantiate a PyTorch estimator giving the [train.py](https://github.com/udacity/ML_SageMaker_Studies/blob/master/Moon_Data/source_solution/train.py) script as entry point and the hyperparameters that this script accepts. In case of a PyTorch model the model is defined in the [model.py](https://github.com/udacity/ML_SageMaker_Studies/blob/master/Moon_Data/source_solution/model.py) file.
 ```python
 from sagemaker.pytorch import PyTorch
 output_path = f"s3://{bucket}/{prefix}"
