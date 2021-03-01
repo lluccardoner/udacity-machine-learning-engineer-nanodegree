@@ -438,4 +438,5 @@ hyperparameters = {
 }
 
 estimator.set_hyperparameters(**hyperparameters)
-``
+```
+For making predictions, the [inference format](https://docs.aws.amazon.com/sagemaker/latest/dg/deepar-in-formats.html) and the response formad is JSON.
