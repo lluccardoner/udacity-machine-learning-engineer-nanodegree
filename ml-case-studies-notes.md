@@ -374,3 +374,27 @@ estimator = PyTorch(
 )
 
 ```
+
+Creating the model predictor
+We instantiate the PyTorch model with the [predict.py](https://github.com/udacity/ML_SageMaker_Studies/blob/master/Moon_Data/source_solution/predict.py) as entry point.
+```python
+# importing PyTorchModel
+from sagemaker.pytorch import PyTorchModel
+
+# Create a model from the trained estimator data
+# And point to the prediction script
+model = PyTorchModel(
+    model_data=estimator.model_data,
+    role=role,
+    entry_point='predict.py',
+    source_dir='source',
+    framework_version='1.6',
+    py_version='py36'
+)
+```
+Now we can deploy the trained model. This will create a Model and an Endpoint.
+```python
+predictor = model.deploy(initial_instance_count=1, instance_type='ml.t2.medium')
+```
+
+
