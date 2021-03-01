@@ -403,4 +403,6 @@ predictor = model.deploy(initial_instance_count=1, instance_type='ml.t2.medium')
 
 
 * [pandas time series functionality](https://pandas.pydata.org/pandas-docs/stable/user_guide/timeseries.html#time-series-date-functionality)
+* [DeepAR](https://docs.aws.amazon.com/sagemaker/latest/dg/deepar.html)
+
 
