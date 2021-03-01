@@ -5,6 +5,7 @@
 2. [K-Means](#2)
 3. [Linear Model](#3)
 4. [Custom PyTorch model](#4)
+5. [Time Series forecasting](#5)
 
 Udacity [repository](https://github.com/udacity/ML_SageMaker_Studies)
 
@@ -392,9 +393,14 @@ model = PyTorchModel(
     py_version='py36'
 )
 ```
+
 Now we can deploy the trained model. This will create a Model and an Endpoint.
 ```python
 predictor = model.deploy(initial_instance_count=1, instance_type='ml.t2.medium')
 ```
 
+## Time Series forecasting<a name="5" />
+
+
+* [pandas time series functionality](https://pandas.pydata.org/pandas-docs/stable/user_guide/timeseries.html#time-series-date-functionality)
 
