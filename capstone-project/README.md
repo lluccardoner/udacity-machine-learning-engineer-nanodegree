@@ -12,4 +12,4 @@ The topic I have chosen for this project is forecasting cryptocurrency prices wi
 * The raw [dataset](https://github.com/lluccardoner/udacity-machine-learning-engineer-nanodegree/tree/main/capstone-project/data/raw) used in this project downloaded from the [Kaggle](https://www.kaggle.com/sudalairajkumar/cryptocurrencypricehistory) webpage.
 
 ## Requirements
-This project has been fully developed using AWS [SageMaker](https://aws.amazon.com/sagemaker/) cloud service. The notebooks were executed on a SageMaker notebook isntance. An account to Amazon Web Services is needed. If doing this project on your own, take into consideration the Sagemaker [costs](https://aws.amazon.com/sagemaker/pricing/) such as running instances and enpoints.
+This project has been fully developed using AWS [SageMaker](https://aws.amazon.com/sagemaker/) cloud service. The notebooks were executed on a SageMaker `ml.t2.medium` notebook isntance. An account to Amazon Web Services is needed. If doing this project on your own, take into consideration the Sagemaker [costs](https://aws.amazon.com/sagemaker/pricing/) such as running instances and enpoints.
